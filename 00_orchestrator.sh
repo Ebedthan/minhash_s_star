@@ -13,13 +13,9 @@
 #   logs/      one timestamped log per step, plus a run-level summary
 #
 # Usage:
-#   ./00_orchestrator.sh                 # run everything, skip completed
-#                                         # steps (checkpoint-based)
-#   ./00_orchestrator.sh --force         # ignore all checkpoints, redo
-#                                         # every step from scratch
-#   ./00_orchestrator.sh --from 04       # start from step 04 onward
-#                                         # (earlier steps' checkpoints
-#                                         # must already exist)
+#   ./00_orchestrator.sh   # run everything, skip completed steps (checkpoint-based)
+#   ./00_orchestrator.sh --force         # ignore all checkpoints, redo every step from scratch
+#   ./00_orchestrator.sh --from 04       # start from step 04 onward (earlier steps' checkpoints must already exist)
 #   ./00_orchestrator.sh --only 05       # run only step 05
 #
 # Environment variables consulted by individual steps:

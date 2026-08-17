@@ -132,17 +132,17 @@ fastani <- read_tsv(file.path(DATA_DIR, "fastani_results.tsv"), show_col_types =
     file.exists(file.path(GENOME_DIR, paste0(accession_B, ".fna")))
   )
 
-cat(sprintf("[06] === %d pairs with both genomes present on disk ===\n", nrow(fastani)))
+cat(sprintf("[05] === %d pairs with both genomes present on disk ===\n", nrow(fastani)))
 
 n_workers <- max(1, parallel::detectCores() - 2)
 plan(multisession, workers = n_workers)
-cat(sprintf("[06] Using %d parallel workers\n", n_workers))
+cat(sprintf("[05] Using %d parallel workers\n", n_workers))
 
 # Pass 1: genome lengths for EVERY distinct accession appearing as either
 # A or B, needed because k depends on max(L_A, L_B) per pair.
 all_accessions <- unique(c(fastani$accession_A, fastani$accession_B))
 cat(sprintf(
-  "[06] Computing genome length for %d distinct accessions (A and B combined)...\n",
+  "[05] Computing genome length for %d distinct accessions (A and B combined)...\n",
   length(all_accessions)
 ))
 t0 <- Sys.time()
@@ -154,7 +154,7 @@ all_lengths <- future_map_dfr(
   },
   .options = furrr_options(seed = TRUE), .progress = TRUE
 )
-cat(sprintf("[06] Pass 1 (lengths): %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
+cat(sprintf("[05] Pass 1 (lengths): %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
 
 fastani <- fastani |>
   dplyr::left_join(all_lengths |> dplyr::rename(accession_A = accession, L_A = L_est), by = "accession_A") |>
@@ -166,7 +166,7 @@ fastani <- fastani |>
 
 n_would_differ <- sum(k_fofanov(fastani$L_A) != fastani$k)
 cat(sprintf(
-  "[06] Pairs where k(max(L_A,L_B)) differs from k(L_A) alone: %d / %d\n\n",
+  "[05] Pairs where k(max(L_A,L_B)) differs from k(L_A) alone: %d / %d\n\n",
   n_would_differ, nrow(fastani)
 ))
 
@@ -180,7 +180,7 @@ work_list <- bind_rows(
   distinct(accession, k)
 
 cat(sprintf(
-  "[06] === %d distinct (accession, k) hash sets needed (vs %d pairs x 2 = %d without dedup) ===\n",
+  "[05] === %d distinct (accession, k) hash sets needed (vs %d pairs x 2 = %d without dedup) ===\n",
   nrow(work_list), nrow(fastani), nrow(fastani) * 2
 ))
 
@@ -194,15 +194,15 @@ hash_results <- NULL
 if (file.exists(hash_checkpoint_path)) {
   cached <- readRDS(hash_checkpoint_path)
   if (all(needed_keys %in% names(cached))) {
-    cat("[06] Reusing cached hash_results from rds/06_hash_results.rds (all needed keys present).\n\n")
+    cat("[05] Reusing cached hash_results from rds/06_hash_results.rds (all needed keys present).\n\n")
     hash_results <- cached[needed_keys]
   } else {
-    cat("[06] Cached hash_results is missing some needed (accession, k) keys -- re-hashing.\n\n")
+    cat("[05] Cached hash_results is missing some needed (accession, k) keys -- re-hashing.\n\n")
   }
 }
 
 if (is.null(hash_results)) {
-  cat("[06] Hashing all distinct (accession, k) genome/k combinations...\n")
+  cat("[05] Hashing all distinct (accession, k) genome/k combinations...\n")
   t0 <- Sys.time()
   hash_results <- future_map(
     seq_len(nrow(work_list)),
@@ -218,7 +218,7 @@ if (is.null(hash_results)) {
   elapsed <- as.numeric(Sys.time() - t0, units = "secs")
   saveRDS(hash_results, hash_checkpoint_path)
   cat(sprintf(
-    "[06] Pass 2 (hashing): %.1fs total, %.2fs per (accession,k)\n\n",
+    "[05] Pass 2 (hashing): %.1fs total, %.2fs per (accession,k)\n\n",
     elapsed, elapsed / nrow(work_list)
   ))
 }
@@ -269,11 +269,11 @@ results_pairs <- pmap_dfr(
   ),
   process_pair_fast
 )
-cat(sprintf("[06] Pass 3 (pair assembly): %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
+cat(sprintf("[05] Pass 3 (pair assembly): %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
 
 write_csv(results_pairs, file.path(RESULTS_DIR, "analysis6_real_genome_comparison.csv"))
 
-cat("[06] === Reliability tier distribution: default s=1000 vs formula s* (RETROSPECTIVE) ===\n")
+cat("[05] === Reliability tier distribution: default s=1000 vs formula s* (RETROSPECTIVE) ===\n")
 tier_distribution <- results_pairs |>
   count(s_label, tier) |>
   pivot_wider(names_from = s_label, values_from = n, values_fill = 0)
@@ -285,12 +285,12 @@ reclass <- results_pairs |>
   filter(default_s1000 != formula_s_star)
 
 cat(sprintf(
-  "[06] %d of %d pairs (%.1f%%) reclassified between s=1000 and s*.\n",
+  "[05] %d of %d pairs (%.1f%%) reclassified between s=1000 and s*.\n",
   nrow(reclass), n_distinct(results_pairs$pair_id),
   100 * nrow(reclass) / n_distinct(results_pairs$pair_id)
 ))
 
-cat("\n[06] === Part D complete ===\n\n")
+cat("\n[05] === Part D complete ===\n\n")
 
 # PART D ADDENDUM: J_theory vs J_exact bias diagnostic + taxonomic rank
 # cross-check. Reuses results_pairs directly from Part D above (same
@@ -309,7 +309,7 @@ pair_level <- results_pairs |>
     J_bias_ratio = J_exact / J_theory
   )
 
-cat(sprintf("[06] === J_theory vs J_exact bias: %d real genome pairs ===\n", nrow(pair_level)))
+cat(sprintf("[05] === J_theory vs J_exact bias: %d real genome pairs ===\n", nrow(pair_level)))
 
 bias_overall_summary <- pair_level |>
   summarise(
@@ -321,7 +321,7 @@ bias_overall_summary <- pair_level |>
     n_negative_bias = sum(J_bias_pct < 0),
     n_over_50pct = sum(J_bias_pct > 50)
   )
-cat("[06] === Overall bias summary ===\n")
+cat("[05] === Overall bias summary ===\n")
 print_full(bias_overall_summary)
 
 f_bands <- c(-Inf, 0.80, 0.85, 0.90, 0.95, 0.99, Inf)
@@ -330,7 +330,7 @@ f_labels <- c("<0.80", "0.80-0.85", "0.85-0.90", "0.90-0.95", "0.95-0.99", ">0.9
 pair_level <- pair_level |>
   mutate(f_min_band = cut(f_min_fastani, breaks = f_bands, labels = f_labels))
 
-cat("[06] === Bias by f_min band ===\n")
+cat("[05] === Bias by f_min band ===\n")
 bias_by_band <- pair_level |>
   group_by(f_min_band) |>
   summarise(
@@ -351,7 +351,7 @@ analysis4_bias_reference <- tribble(
   0.80,   8.05
 )
 
-cat("[06] === Real-genome bias vs Analysis 4's simulated-sequence bias (nearest f_min match) ===\n")
+cat("[05] === Real-genome bias vs Analysis 4's simulated-sequence bias (nearest f_min match) ===\n")
 comparison_tbl <- pair_level |>
   mutate(f_min_nearest = case_when(
     f_min_fastani >= 0.995 ~ 0.999,
@@ -371,14 +371,14 @@ comparison_tbl <- pair_level |>
   mutate(fold_excess_vs_simulation = real_median_bias_pct / analysis4_bias_pct)
 print_full(comparison_tbl)
 
-cat("[06] === Pairs with J_bias_pct > 100% (J_exact more than double J_theory) ===\n")
+cat("[05] === Pairs with J_bias_pct > 100% (J_exact more than double J_theory) ===\n")
 extreme_bias <- pair_level |>
   filter(J_bias_pct > 100) |>
   arrange(desc(J_bias_pct)) |>
   select(pair_id, accA, accB, f_min_fastani, J_theory, J_exact, J_bias_pct)
 print_full(extreme_bias)
 cat(sprintf(
-  "[06] %d of %d pairs (%.1f%%) show >100%% bias.\n",
+  "[05] %d of %d pairs (%.1f%%) show >100%% bias.\n",
   nrow(extreme_bias), nrow(pair_level), 100 * nrow(extreme_bias) / nrow(pair_level)
 ))
 
@@ -400,14 +400,14 @@ if (file.exists(selection_path)) {
   n_unmatched <- sum(is.na(pair_level_ranked$shared_rank))
   if (n_unmatched > 0) {
     cat(sprintf(
-      "[06] WARNING: %d of %d pairs could not be matched to a shared_rank.\n",
+      "[05] WARNING: %d of %d pairs could not be matched to a shared_rank.\n",
       n_unmatched, nrow(pair_level_ranked)
     ))
   }
 
   rank_order <- c("species", "genus", "family", "order")
 
-  cat("[06] === J bias by shared taxonomic rank ===\n")
+  cat("[05] === J bias by shared taxonomic rank ===\n")
   rank_bias_by_rank <- pair_level_ranked |>
     filter(!is.na(shared_rank)) |>
     mutate(shared_rank = factor(shared_rank, levels = rank_order)) |>
@@ -420,7 +420,7 @@ if (file.exists(selection_path)) {
     arrange(shared_rank)
   print_full(rank_bias_by_rank)
 
-  cat("[06] === J bias by anchor species ===\n")
+  cat("[05] === J bias by anchor species ===\n")
   rank_bias_by_anchor <- pair_level_ranked |>
     filter(!is.na(shared_rank)) |>
     group_by(anchor_species) |>
@@ -431,14 +431,14 @@ if (file.exists(selection_path)) {
     arrange(desc(median_bias_pct))
   print_full(rank_bias_by_anchor)
 
-  cat("[06] === shared_rank distribution among pairs with J_bias_pct > 100% ===\n")
+  cat("[05] === shared_rank distribution among pairs with J_bias_pct > 100% ===\n")
   rank_bias_extreme_by_rank <- pair_level_ranked |>
     filter(!is.na(shared_rank), J_bias_pct > 100) |>
     count(shared_rank, name = "n_extreme_bias_pairs") |>
     arrange(desc(n_extreme_bias_pairs))
   print_full(rank_bias_extreme_by_rank)
 
-  cat("[06] === Median bias: rank x anchor_species ===\n")
+  cat("[05] === Median bias: rank x anchor_species ===\n")
   rank_bias_by_rank_anchor <- pair_level_ranked |>
     filter(!is.na(shared_rank)) |>
     mutate(shared_rank = factor(shared_rank, levels = rank_order)) |>
@@ -447,10 +447,10 @@ if (file.exists(selection_path)) {
     arrange(shared_rank, anchor_species)
   print_full(rank_bias_by_rank_anchor)
 } else {
-  cat(sprintf("[06] NOTE: %s not found -- skipping taxonomic rank cross-check.\n", selection_path))
+  cat(sprintf("[05] NOTE: %s not found -- skipping taxonomic rank cross-check.\n", selection_path))
 }
 
-cat("\n[06] === Part D addendum complete ===\n\n")
+cat("\n[05] === Part D addendum complete ===\n\n")
 
 # PART E: PROSPECTIVE validation at fixed, a priori design targets
 #
@@ -507,7 +507,7 @@ results_prospective <- map_dfr(targets, function(ft) {
     ~ process_pair_prospective(..1, ..2, ..3, ..4, f_min_target = ft)
   )
 })
-cat(sprintf("[06] Part E pair assembly: %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
+cat(sprintf("[05] Part E pair assembly: %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
 
 results_prospective <- results_prospective |>
   dplyr::left_join(fastani |> dplyr::select(pair_id, f_min_fastani), by = "pair_id") |>
@@ -522,7 +522,7 @@ results_prospective <- results_prospective |>
 
 write_csv(results_prospective, file.path(RESULTS_DIR, "analysis6_prospective_validation.csv"))
 
-cat("[06] === Prospective validation: coverage and precision by fixed target f_min ===\n")
+cat("[05] === Prospective validation: coverage and precision by fixed target f_min ===\n")
 prospective_summary <- results_prospective |>
   group_by(f_min_target) |>
   summarise(
@@ -538,13 +538,13 @@ prospective_summary <- results_prospective |>
   )
 print_full(prospective_summary)
 
-cat("[06] === Coverage stratified by true-ANI relative to the fixed target ===\n")
+cat("[05] === Coverage stratified by true-ANI relative to the fixed target ===\n")
 prospective_by_gap_band <- results_prospective |>
   group_by(f_min_target, ani_band) |>
   summarise(n = n(), coverage = mean(covered), median_rho = median(rho, na.rm = TRUE), .groups = "drop")
 print_full(prospective_by_gap_band)
 
-cat("\n[06] === Part E complete ===\n")
+cat("\n[05] === Part E complete ===\n")
 
 # FINAL CHECKPOINT: bundle everything Analysis 6 produced for 07_figures.R
 
@@ -571,11 +571,11 @@ saveRDS(
   file.path(RDS_DIR, "06_real_genomes.rds")
 )
 
-cat("\n[06] === Analysis 6 (R portion: Part D + addendum + Part E) complete ===\n")
-cat("[06] Outputs written:\n")
-cat("[06]   - results/analysis6_pair_table_enriched.csv\n")
-cat("[06]   - results/analysis6_real_genome_comparison.csv\n")
-cat("[06]   - results/analysis6_bias_diagnostic.csv\n")
-cat("[06]   - results/analysis6_prospective_validation.csv\n")
-cat("[06]   - rds/06_hash_results.rds\n")
-cat("[06]   - rds/06_real_genomes.rds\n")
+cat("\n[05] === Analysis 6 (R portion: Part D + addendum + Part E) complete ===\n")
+cat("[05] Outputs written:\n")
+cat("[05]   - results/analysis6_pair_table_enriched.csv\n")
+cat("[05]   - results/analysis6_real_genome_comparison.csv\n")
+cat("[05]   - results/analysis6_bias_diagnostic.csv\n")
+cat("[05]   - results/analysis6_prospective_validation.csv\n")
+cat("[05]   - rds/06_hash_results.rds\n")
+cat("[05]   - rds/06_real_genomes.rds\n")

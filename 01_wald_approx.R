@@ -14,7 +14,6 @@ dir.create(RESULTS_DIR, showWarnings = FALSE, recursive = TRUE)
 dir.create(RDS_DIR, showWarnings = FALSE, recursive = TRUE)
 
 # 1. Closed-form Wald estimator
-
 s_star_wald <- function(J, rho_star = 0.10, alpha = 0.05) {
   z <- qnorm(1 - alpha / 2)
   z^2 * (1 - J) / (rho_star^2 * J)
@@ -23,7 +22,6 @@ s_star_wald <- function(J, rho_star = 0.10, alpha = 0.05) {
 
 # 2. Vectorized exact relative half-width rho(s) for a VECTOR of sketch
 #    sizes s, at fixed J and alpha. Degenerate draws (x=0 or x=s) return NA.
-
 rho_exact_vec <- function(s_vec, J, alpha = 0.05) {
   x <- round(J * s_vec)
   degenerate <- (x <= 0) | (x >= s_vec)
@@ -60,9 +58,14 @@ rho_exact_vec <- function(s_vec, J, alpha = 0.05) {
 #    s*_wald elsewhere in this analysis) and doubles up to s_max if no
 #    success is found.
 
-s_star_exact_and_stable <- function(J, rho_star = 0.10, alpha = 0.05,
-                                    s_min = 1, s_max = 5e6,
-                                    initial_multiple = 5) {
+s_star_exact_and_stable <- function(
+  J,
+  rho_star = 0.10,
+  alpha = 0.05,
+  s_min = 1,
+  s_max = 5e6,
+  initial_multiple = 5
+) {
   s_wald <- s_star_wald(J, rho_star, alpha)
   ceiling_try <- min(s_max, max(100, ceiling(s_wald * initial_multiple)))
 
@@ -112,7 +115,7 @@ s_star_exact_and_stable <- function(J, rho_star = 0.10, alpha = 0.05,
     }
   }
 
-  tibble(
+  tibble::tibble(
     s_exact = s_exact,
     s_stable = s_stable,
     nonmonotonic = any_nonmonotonic,
@@ -142,7 +145,10 @@ exact_results <- future_pmap_dfr(
   .progress = TRUE
 )
 
-cat(sprintf("[01] Grid evaluation: %.1fs\n\n", as.numeric(Sys.time() - t0, units = "secs")))
+cat(sprintf(
+  "[01] Grid evaluation: %.1fs\n\n",
+  as.numeric(Sys.time() - t0, units = "secs")
+))
 
 results <- bind_cols(grid, exact_results) |>
   mutate(
@@ -162,7 +168,7 @@ summary_table <- results |>
   filter(!is.na(s_exact)) |>
   group_by(rho_star, alpha) |>
   summarise(
-    n_cells = n(),
+    n_cells = dplyr::n(),
     median_ratio = median(ratio_exact_wald),
     max_ratio = max(ratio_exact_wald),
     min_ratio = min(ratio_exact_wald),
@@ -178,12 +184,12 @@ n_na <- sum(is.na(results$s_exact))
 if (n_na > 0) {
   message(sprintf(
     "[01] %d of %d grid cells returned NA for s*_exact (infeasible within s_max = 5e6).",
-    n_na, nrow(results)
+    n_na,
+    nrow(results)
   ))
 }
 
 # 6. Non-monotonicity diagnostic
-
 cat("\n[01] === s*_exact vs s*_stable: how often do they differ? ===\n")
 valid <- results |> filter(!is.na(s_exact))
 
@@ -192,7 +198,9 @@ pct_coincide <- 100 * (1 - n_differ / nrow(valid))
 
 cat(sprintf(
   "[01] s*_exact == s*_stable in %d / %d cells (%.1f%% coincide)\n",
-  nrow(valid) - n_differ, nrow(valid), pct_coincide
+  nrow(valid) - n_differ,
+  nrow(valid),
+  pct_coincide
 ))
 
 nonmono_detail <- NULL
@@ -212,7 +220,6 @@ if (n_differ > 0) {
 }
 
 # 7. Checkpoint
-
 saveRDS(
   list(
     results = results,
@@ -224,4 +231,6 @@ saveRDS(
 )
 
 cat("\n[01] === Analysis 1 complete ===\n")
-cat("[01] Outputs: results/analysis2_wald_vs_exact_grid.csv, results/analysis2_summary_table.csv, rds/02_wald_approx.rds\n")
+cat(
+  "[01] Outputs: results/analysis2_wald_vs_exact_grid.csv, results/analysis2_summary_table.csv, rds/02_wald_approx.rds\n"
+)
